@@ -36,7 +36,13 @@ class Msg():
             #提取At对象中的用户ID，组成list
             if self.at is not None:
                 self.at = [ats.target for ats in self.at]
-            self.txt = self.msgChain.get(Plain)[0].text if self.msgChain.has(Plain) else None
+            self.txt=''
+            Plains=self.msgChain.get(Plain)
+            if self.msgChain.has(Plain):
+                for i in Plains:
+                    self.txt=self.txt+i.text
+            else:self.txt=None
+            t=self.txt
 
     def getMsgDict(self) -> dict:#获取msg的dict对象
         self.msg_dict = {

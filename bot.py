@@ -67,10 +67,10 @@ async def changeWelcome(message: GroupMessage, group: Group):
 async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
     msg = Msg(message)
     msgChain = message.messageChain
-    if msgChain.has(At) and msgChain.has(Plain):
+    if msgChain.has(At) or msgChain.has(Plain):
         #首先对消息进行问答解析
         Question = msg.txt.strip()
-        at = msgChain.get(At)[0].target
+        at = msgChain.get(At)[0].target if msgChain.has(At) else 0
         if at == BOTQQ:
             if Question == '列表':
                 #获取本群问答列表
@@ -88,10 +88,16 @@ async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessag
                         MC=msgChain
                     ))
                 return
-            tempQ = search(Question, group)
-            send_msg = tempQ.get_msg_graia(msgChain) \
-                if tempQ is not None else \
-                asSendable_creat(list=[Plain("没有找到这个问题，请等待学长学姐来回答或回复“列表”查看已有问题")], MC=msgChain)
+        tempQ = search(Question, group)
+        if tempQ is not None:
+            send_msg = tempQ.get_msg_graia(msgChain)
+        else:
+            if at == BOTQQ:
+                send_msg=asSendable_creat(list=[
+                    Plain("没有找到这个问题，请等待学长学姐来回答或回复“列表”查看已有问题")
+                ],MC=msgChain)
+            else:send_msg=None
+        if send_msg is not None:
             await app.sendGroupMessage(group, send_msg)
             return
     if temp_talk.get(msg.user_id):
