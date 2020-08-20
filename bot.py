@@ -24,6 +24,8 @@ from MsgObj import Msg, asSendable_creat
 '''
 监听新人入群并欢迎
 '''
+
+
 @bcc.receiver("MemberJoinEvent")
 async def MemberJoin(event: MemberJoinEvent):
     group = event.member.group
@@ -36,14 +38,17 @@ async def MemberJoin(event: MemberJoinEvent):
         At(event.member.id)
     ]))
 
+
 '''
 修改群迎新词
 '''
+
+
 @bcc.receiver('GroupMessage', headless_decoraters=[
     Depend(judge_depend_target)
 ])
 async def changeWelcome(message: GroupMessage, group: Group):
-    if not message.messageChain.asSendable().asDisplay().startswith("修改迎新词"): return
+    if not parser(message, "修改迎新词 "): return
     if not message.messageChain.has(Plain): return
     plain = message.messageChain.get(Plain)
     txt = plain[0].text.replace("修改迎新词 ", "")
@@ -54,6 +59,7 @@ async def changeWelcome(message: GroupMessage, group: Group):
         status = "修改失败，不合法！"
     await app.sendGroupMessage(group, MessageChain.create([Plain(status)]))
 
+
 '''
 问答模块，集合了
     添加问题
@@ -63,92 +69,76 @@ async def changeWelcome(message: GroupMessage, group: Group):
     问答功能
 （注：这部分代码十分恶心，请谨慎阅读，之后会重构）
 '''
-@bcc.receiver("GroupMessage")
-async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
+
+
+async def FQA(message: GroupMessage, group: Group) -> bool:
+    if not (message.messageChain.has(At) or message.messageChain.has(Plain)): return False
     msg = Msg(message)
     msgChain = message.messageChain
-    if msgChain.has(At) or msgChain.has(Plain):
-        #首先对消息进行问答解析
-        Question = msg.txt.strip()
-        at = msgChain.get(At)[0].target if msgChain.has(At) else 0
+    # 首先对消息进行问答解析
+    Question = msg.txt.strip()
+    if Question == '列表' and message.messageChain.has(At):
+        await FQA_list(message, group)
+        del msg
+        return False
+    at = msgChain.get(At)[0].target if msgChain.has(At) else 0
+    tempQ = search(Question, group)
+    if tempQ is not None:
+        send_msg = tempQ.get_msg_graia(msgChain)
+    else:
         if at == BOTQQ:
-            if Question == '列表':
-                #获取本群问答列表
-                QuestionList = ''
-                if group.id in GroupQA and len(GroupQA[group.id].keys()) >= 1:
-                    for i in GroupQA[group.id].keys():
-                        QuestionList += f"*{i}\n"
-                    await app.sendGroupMessage(group, asSendable_creat(
-                        list=[Plain(QuestionList)],
-                        MC=msgChain
-                    ))
-                else:
-                    await app.sendGroupMessage(group, asSendable_creat(
-                        list=[Plain("本群暂时没有问题哦")],
-                        MC=msgChain
-                    ))
-                return
-        tempQ = search(Question, group)
-        if tempQ is not None:
-            send_msg = tempQ.get_msg_graia(msgChain)
+            send_msg = asSendable_creat(list=[
+                Plain("没有找到这个问题，请等待学长学姐来回答或回复“列表”查看已有问题")
+            ], MC=msgChain)
         else:
-            if at == BOTQQ:
-                send_msg=asSendable_creat(list=[
-                    Plain("没有找到这个问题，请等待学长学姐来回答或回复“列表”查看已有问题")
-                ],MC=msgChain)
-            else:send_msg=None
-        if send_msg is not None:
-            await app.sendGroupMessage(group, send_msg)
-            return
-    if temp_talk.get(msg.user_id):
-        #查看发起会话的用户是否有未结束的会话
-        if temp_talk[msg.user_id]['isFirstRun']:
-            temp_talk[msg.user_id]['isFirstRun'] = False
-            type = temp_talk[msg.user_id]['type']
-            if type == 'Add':
-                await AddQA(message, group)
-            elif type == 'Change':
-                await change(group, message)
-            temp_talk.pop(msg.user_id)
-            #会话结束，将会话释放掉
-            return
-    if msgChain.asDisplay().startswith("添加问题 "):
-        #创建添加问题的新会话
-        txt = message.messageChain.get(Plain)[0].text.replace("添加问题", "").strip()
-        msg.txt.replace("添加问题", "").strip()
-        if not temp_talk.get(msg.user_id):
-            temp_talk[msg.user_id] = {
-                'type': 'Add',
-                'isFirstRun': True,
-                'Q': txt
-            }
+            send_msg = None
+    if send_msg is not None:
+        await app.sendGroupMessage(group, send_msg)
+        del msg
+        return True
+    del msg
+    return False
+
+
+@bcc.receiver("GroupMessage")
+async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
+    if await FQA(message,group):return
+    msg = Msg(message)
+    Question = message.messageChain.get(Plain)[0].text if message.messageChain.has(Plain) else None
+    if Question is None: return
+    hasSession = temp_talk.get(msg.user_id)
+    if hasSession:
+        if await session_manager(message, group): return
+    if parser(message, "添加问题 "):
+        # 创建添加问题的新会话
+        Question = Question.replace("添加问题", "").strip()
+        if not hasSession:
+            add_temp_talk(msg.user_id, 'Add', True, Question)
             await AddQA(message, group)
+        del msg
         return
-    if msgChain.asDisplay().startswith("修改问题 "):
-        #创建修改问题的新会话
-        txt = message.messageChain.get(Plain)[0].text.replace("修改问题", "").strip()
-        msg.txt.replace("修改问题", "").strip()
-        if not temp_talk.get(msg.user_id):
-            temp_talk[msg.user_id] = {
-                'type': 'Change',
-                'isFirstRun': True,
-                'Q': txt
-            }
-            await change(group, message)
+    if parser(message, "修改问题 "):
+        # 创建修改问题的新会话
+        Question = Question.replace("修改问题", "").strip()
+        if not hasSession:
+            add_temp_talk(msg.user_id, 'Change', True, Question)
+            await change(group=group,GM=message)
+        del msg
         return
-    if msgChain.asDisplay().startswith("删除问题 "):
-        #删除问题
-        txt = msg.txt.replace("删除问题", "").strip()
-        isdeleteOK = "删除成功" if deleteQA(txt, group) else "不存在这个问题"
-        await app.sendGroupMessage(group, asSendable_creat(list=[
+    if parser(message, "删除问题 "):
+        # 删除问题
+        Question = Question.replace("删除问题", "").strip()
+        isdeleteOK = "删除成功" if deleteQA(Question, group) else "不存在这个问题"
+        await app.sendGroupMessage(group, message.messageChain.create([
             Plain(isdeleteOK)
-        ], MC=msgChain))
+        ]))
         await saveQA()
+        del msg
         return
 
 
 if __name__ == '__main__':
-    #初始化GroupQA
+    # 初始化GroupQA
     # loop.run_until_complete(Compatible_old_index())
     loop.run_until_complete(ReadQA())
 
