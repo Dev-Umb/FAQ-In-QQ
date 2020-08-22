@@ -1,5 +1,5 @@
 # FAQ-In-QQ
-基于[Graia Framework](https://github.com/GraiaProject/Application)框架开发的Mirai机器人插件
+基于[Graia Framework](https://github.com/GraiaProject/Application)框架开发的Mirai机器人插件,目前集成了迎新/问答/百度/萌娘/说骚话功能
 
 ## 使用方法：
 
@@ -16,13 +16,25 @@
   #本地地址
    
    AuthKey="graia-mirai-api-http-authkey"
-
+  #你的软件key值
    ```
   config中的端口配置和key配置要与MiraiOK/plugin/MiraiAPIHTTP下的setting.yml中的端口配置相同
 
   3.启动MiraiOK并登录一个账号
 
   4.启动bot.py文件
+  
+## 指令菜单
+```
+1./start 开启百度和骚话功能
+2./shutdown 关闭百度和骚话功能
+3. 添加问题 问题名
+4. 修改问题 问题名
+5. 删除问题 问题名
+6. 百度 词条
+7. 萌娘 词条
+8. .来点好听的
+```
 
 ## 使用场景：
 
