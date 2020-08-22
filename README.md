@@ -5,7 +5,20 @@
 
   1.下载[MiraiOK](https://github.com/LXY1226/MiraiOK)并参阅[文档](https://graiaproject.github.io/Application/)进行配置
 
-  2.修改config里的QQBOT为自己机器人的账号，修该端口，使config中的端口配置与MiraiOK/plugin/MiraiAPIHTTP下的setting.yml中的端口配置相同
+  2.创建config.py文件，分别填入以下配置：
+   ```python
+   BOTQQ=123456
+   
+   #Bot的QQ，一定要写，否则会报找不到无头客户端的error
+   
+   API_ROOT='http://localhost:80'
+
+  #本地地址
+   
+   AuthKey="graia-mirai-api-http-authkey"
+
+   ```
+  config中的端口配置和key配置要与MiraiOK/plugin/MiraiAPIHTTP下的setting.yml中的端口配置相同
 
   3.启动MiraiOK并登录一个账号
 
