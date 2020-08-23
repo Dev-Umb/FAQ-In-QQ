@@ -1,24 +1,17 @@
-import threading
 from graia.application.event.mirai import *
-from graia.broadcast import Broadcast, BaseEvent, ExecutionStop
-from graia.application import GraiaMiraiApplication, Session, GroupMessage
-from graia.application.message.chain import MessageChain
-import asyncio
-from graia.application.message.elements.internal import *
-from graia.application.friend import *
-from graia.application.group import Group
 from graia.broadcast.builtin.decoraters import Depend
-from graia.broadcast.entities.event import EventMeta
-from config import *
 from pulgin import *
-from MsgObj import Msg, asSendable_creat
+from MsgObj import Msg
+from init_bot import *
 
 '''
 各文件说明：
+    init_bot.py 初始化bot对象和一些需要用到的list或者dict
     bot.py 运行的main文件，包括消息指令入口
-    config.py bot运行所需要的配置，端口号，QQ号，黑名单，白名单，超级管理员账号等，配置参见Graia文档
     MsgObj.py 独立封装的message消息类，便于对消息数据进行保存和调用
     pulgin.py bot所需要到的一些函数的封装
+    config.py bot运行所需要的配置，端口号，bot的QQ号等，配置参见Graia文档
+    
 '''
 
 '''
@@ -71,25 +64,58 @@ async def changeWelcome(message: GroupMessage, group: Group):
 '''
 
 
-async def FQA(message: GroupMessage, group: Group) -> bool:
-    if not (message.messageChain.has(At) or message.messageChain.has(Plain)): return False
+@bcc.receiver("GroupMessage")
+async def close_in_group(message: GroupMessage, group: Group):
+    if parser(message=message, txt="\shutdown") \
+            and message.sender.id in Manager \
+            and group.id in BlackGroup:
+        BlackGroup.remove(group.id)
+        await app.sendGroupMessage(group, message.messageChain.create(
+            [Plain("已关闭百度与骚话功能")]
+        ))
+    elif parser(message, "\start") \
+            and message.sender.id in Manager \
+            and group.id not in BlackGroup:
+        BlackGroup.append(group.id)
+        await app.sendGroupMessage(group, message.messageChain.create(
+            [Plain("已开启百度与骚话功能")]
+        ))
+
+
+@bcc.receiver("GroupMessage")
+async def indexes(message: GroupMessage, group: Group):
+    if parser(message, '#'):
+        id: str = message.messageChain.get(Plain)[0].text.replace('#', '')
+        if id.isdigit():
+            temp_list: list = quick_find_question_list[group.id]
+            Question: str = temp_list[int(id)]
+            Answer = search(Question, group)
+            send_msg = Answer.get_msg_graia(message.messageChain)
+            await app.sendGroupMessage(group, send_msg)
+
+
+@bcc.receiver("GroupMessage")
+async def FQA(message: GroupMessage, group: Group):
+    if message.messageChain.asDisplay().startswith("百度 ") \
+            or message.messageChain.asDisplay().startswith("萌娘 "): return
+    if not (message.messageChain.has(At) or message.messageChain.has(Plain)): return
     msg = Msg(message)
     msgChain = message.messageChain
     # 首先对消息进行问答解析
     Question = msg.txt.strip()
     if Question == '列表' and message.messageChain.has(At):
-        await FQA_list(message, group)
+        FQA_list(message, group)
         del msg
-        return False
+        return
     at = msgChain.get(At)[0].target if msgChain.has(At) else 0
     tempQ = search(Question, group)
     if tempQ is not None:
         send_msg = tempQ.get_msg_graia(msgChain)
     else:
         if at == BOTQQ:
-            send_msg = asSendable_creat(list=[
+            send_msg = msgChain.create([
                 Plain("没有找到这个问题，请等待学长学姐来回答或回复“列表”查看已有问题")
-            ], MC=msgChain)
+            ])
         else:
             send_msg = None
     if send_msg is not None:
@@ -97,38 +123,59 @@ async def FQA(message: GroupMessage, group: Group) -> bool:
         del msg
         return True
     del msg
-    return False
+    return
+
+
+@bcc.receiver("GroupMessage")
+async def BaiDu(message: GroupMessage, group: Group):
+    if group.id not in BlackGroup: return
+    if message.messageChain.asDisplay().startswith("百度 "):
+        entry = message.messageChain.get(Plain)[0].text.replace("百度 ", "")
+        await app.sendGroupMessage(group=group, message=message.messageChain.create([
+            Plain(getBaiduKnowledge(entry))
+        ]))
+    elif message.messageChain.asDisplay().startswith("萌娘 "):
+        entry = message.messageChain.get(Plain)[0].text.replace("萌娘 ", "")
+        await app.sendGroupMessage(group=group, message=message.messageChain.create([
+            Plain(getACGKnowledge(entry))
+        ]))
 
 
 @bcc.receiver("GroupMessage")
 async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
-    if await FQA(message,group):return
+    if parser(message, "百度 ") \
+            or parser(message, "萌娘 "): return
     msg = Msg(message)
     Question = message.messageChain.get(Plain)[0].text if message.messageChain.has(Plain) else None
-    if Question is None: return
     hasSession = temp_talk.get(msg.user_id)
-    if hasSession:
+    if hasSession is not None:
         if await session_manager(message, group): return
     if parser(message, "添加问题 "):
         # 创建添加问题的新会话
-        Question = Question.replace("添加问题", "").strip()
-        if not hasSession:
+        Question = Question.replace("添加问题 ", "").strip()
+        if hasSession is None:
             add_temp_talk(msg.user_id, 'Add', True, Question)
             await AddQA(message, group)
         del msg
         return
+    if parser(message, ".来点好听的"):
+        if group.id not in BlackGroup: return
+        await app.sendGroupMessage(group, message.messageChain.create([
+            Plain(get_love()),
+            At(msg.user_id)
+        ]))
     if parser(message, "修改问题 "):
         # 创建修改问题的新会话
         Question = Question.replace("修改问题", "").strip()
         if not hasSession:
             add_temp_talk(msg.user_id, 'Change', True, Question)
-            await change(group=group,GM=message)
+            await change(group=group, GM=message)
         del msg
         return
     if parser(message, "删除问题 "):
         # 删除问题
         Question = Question.replace("删除问题", "").strip()
-        isdeleteOK = "删除成功" if deleteQA(Question, group) else "不存在这个问题"
+        isdeleteOK:str = "删除成功" if deleteQA(Question, group) else "不存在这个问题"
         await app.sendGroupMessage(group, message.messageChain.create([
             Plain(isdeleteOK)
         ]))
@@ -140,6 +187,7 @@ async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessag
 if __name__ == '__main__':
     # 初始化GroupQA
     # loop.run_until_complete(Compatible_old_index())
+    nest_asyncio.apply()
     loop.run_until_complete(ReadQA())
-
+    loop.run_until_complete(read_love())
     app.launch_blocking()

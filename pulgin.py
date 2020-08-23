@@ -11,8 +11,10 @@ from graia.application.message.elements.internal import *
 from graia.application.group import Group
 from MsgObj import Msg
 from init_bot import *
-
-headers = {}  # 请求header
+import nest_asyncio
+headers = {
+    'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Edg/81.0.416.77'
+}  # 请求header
 BaiDuWiKi = 'https://baike.baidu.com/item/'
 
 
@@ -113,9 +115,13 @@ def FQA_list(message: GroupMessage, group: Group):
     if not message.messageChain.get(At)[0].target == BOTQQ: return
     AllQuestionStr = ''
     if group.id in GroupQA and len(GroupQA[group.id].keys()) >= 1:
-        keyList = sorted(GroupQA[group.id].keys(), key=lambda i: len(i), reverse=False)
+        if len(quick_find_question_list[group.id]) !=len(GroupQA[group.id].keys()):
+            quick_find_question_list[group.id]=sorted(GroupQA[group.id].keys(), key=lambda i: len(i), reverse=False)
+        keyList = quick_find_question_list[group.id] if group.id in quick_find_question_list else ['']
+        num = 0
         for i in keyList:
-            AllQuestionStr += f"*{i}\n"
+            AllQuestionStr += f"*{num}.{i}\n"
+            num+=1
         send_txt = AllQuestionStr
     else:
         send_txt = "本群暂时没有问题哦"
@@ -135,7 +141,7 @@ def FQA_list(message: GroupMessage, group: Group):
 
 
 def parser(message: GroupMessage, txt: str) -> bool:
-    if message.messageChain.asSendable().asDisplay().startswith(txt):
+    if message.messageChain.asDisplay().startswith(txt):
         return True
     return False
 
@@ -206,6 +212,7 @@ async def change(group: GroupQA, GM: GroupMessage):
 
 
 async def AddQA(groupMsg: GroupMessage, group: Group):
+    global app
     isFirstRun = temp_talk[groupMsg.sender.id]['isFirstRun']
     Question = temp_talk[groupMsg.sender.id]['Q']
     sendMsg = None
@@ -224,9 +231,9 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
         if Question is not None:
             if Question in t_QA.keys():
                 reply = "问题已存在,当前回答为:"
-                sendMsg = t_QA[Question].get_msg_graia(session.msgChain).plusWith([
+                sendMsg =groupMsg.messageChain.create([
                     Plain(reply)
-                ])
+                ]).plusWith( t_QA[Question].get_msg_list())
                 temp_talk.pop(groupMsg.sender.id)
             else:
                 sendMsg = session.msgChain.create([
@@ -236,6 +243,7 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
         t_QA = GroupQA[group.id]
         answer = Msg(groupMsg)
         t_QA[Question] = answer
+        temp_talk.pop(groupMsg.sender.id)
         sendMsg = session.msgChain.create([
             Plain("录入成功")
         ])
@@ -244,54 +252,6 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
     if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
 
 
-async def saveQA():  # 对已有问答数据进行保存
-    AllData = dict()
-    with open('QAindex.json', 'w+') as f:
-        for key in GroupQA:
-            t_dict = GroupQA[key]
-            indexDict = dict()
-            for i in t_dict:
-                data = json.dumps(t_dict[i].getMsgDict())
-                indexDict[i] = data
-            AllData[key] = indexDict.copy()
-            indexDict.clear()
-        f.write(json.dumps(AllData))
-        f.close()
-    print("已保存")
 
 
-async def ReadQA():
-    try:
-        with open('QAindex.json', 'r') as f:
-            tempDict = json.loads(f.read())
-            for i in tempDict.keys():
-                GroupQA[int(i)] = tempDict[i]
-                for key in GroupQA[int(i)].keys():
-                    t = tempDict[i][key]
-                    GroupQA[int(i)][key] = Msg()
-                    GroupQA[int(i)][key].set_dict_from_json(t)
-            f.close()
-            print("读取结束")
-    except:
-        with open('QAIndex.json', 'w+') as f:
-            f.close()
 
-
-async def Compatible_old_index():  # 对旧有数据的转化
-    with open('QAindex.json', 'r') as f:
-        tempDick = json.loads(f.read())
-        for i in tempDick.keys():
-            tempDick[i] = json.loads(tempDick[i])
-            GroupQA[int(i)] = tempDick[i].copy()
-            for key in tempDick[i]:
-                txt = tempDick[i][key]
-                GroupQA[int(i)][key] = Msg()
-                TransformDict = {
-                    'user_id': None,
-                    'at': None,
-                    'msg_txt': txt,
-                    'img_url': None
-                }
-                GroupQA[int(i)][key].set_dict(TransformDict)
-        f.close()
-        await  saveQA()
