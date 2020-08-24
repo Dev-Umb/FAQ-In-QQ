@@ -179,6 +179,7 @@ async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessag
         await app.sendGroupMessage(group, message.messageChain.create([
             Plain(isdeleteOK)
         ]))
+        list_refresh(group.id)
         await saveQA()
         del msg
         return

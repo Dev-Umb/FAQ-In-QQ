@@ -12,8 +12,9 @@ from graia.application.group import Group
 from MsgObj import Msg
 from init_bot import *
 import nest_asyncio
+
 headers = {
-    'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Edg/81.0.416.77'
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Edg/81.0.416.77'
 }  # 请求header
 BaiDuWiKi = 'https://baike.baidu.com/item/'
 
@@ -108,6 +109,10 @@ async def session_manager(message: GroupMessage, group: Group):
     return False
 
 
+def list_refresh(group_id: int):
+    quick_find_question_list[group_id] = sorted(GroupQA[group_id].keys(), key=lambda i: len(i), reverse=False)
+
+
 '''获取问题列表'''
 
 
@@ -115,13 +120,11 @@ def FQA_list(message: GroupMessage, group: Group):
     if not message.messageChain.get(At)[0].target == BOTQQ: return
     AllQuestionStr = ''
     if group.id in GroupQA and len(GroupQA[group.id].keys()) >= 1:
-        if len(quick_find_question_list[group.id]) !=len(GroupQA[group.id].keys()):
-            quick_find_question_list[group.id]=sorted(GroupQA[group.id].keys(), key=lambda i: len(i), reverse=False)
         keyList = quick_find_question_list[group.id] if group.id in quick_find_question_list else ['']
         num = 0
         for i in keyList:
             AllQuestionStr += f"*{num}.{i}\n"
-            num+=1
+            num += 1
         send_txt = AllQuestionStr
     else:
         send_txt = "本群暂时没有问题哦"
@@ -231,9 +234,9 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
         if Question is not None:
             if Question in t_QA.keys():
                 reply = "问题已存在,当前回答为:"
-                sendMsg =groupMsg.messageChain.create([
+                sendMsg = groupMsg.messageChain.create([
                     Plain(reply)
-                ]).plusWith( t_QA[Question].get_msg_list())
+                ]).plusWith(t_QA[Question].get_msg_list())
                 temp_talk.pop(groupMsg.sender.id)
             else:
                 sendMsg = session.msgChain.create([
@@ -247,11 +250,7 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
         sendMsg = session.msgChain.create([
             Plain("录入成功")
         ])
+        list_refresh(group.id)
         await saveQA()
     del session
     if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
-
-
-
-
-
