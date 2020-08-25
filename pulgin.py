@@ -32,8 +32,9 @@ async def read_love():
                 LoveTalkList.append(a)
             a = f.readline()
     except:
-        f = open('love.txt', 'w+')
-        f.close()
+        pass
+        # f = open('love.txt', 'w+')
+        # f.close()
 
 
 def getACGKnowledge(txt: str) -> str:
@@ -123,8 +124,9 @@ def FQA_list(message: GroupMessage, group: Group):
         keyList = quick_find_question_list[group.id] if group.id in quick_find_question_list else ['']
         num = 0
         for i in keyList:
-            AllQuestionStr += f"*{num}.{i}\n"
+            AllQuestionStr += f"#{num}.{i}\n"
             num += 1
+        AllQuestionStr+="使用快速索引：#+问题序号"
         send_txt = AllQuestionStr
     else:
         send_txt = "本群暂时没有问题哦"
