@@ -94,20 +94,20 @@ def add_temp_talk(id: int, type: str, isFirstRun: bool, Question: str):
 '''进行封装的命令解析器'''
 
 
-async def session_manager(message: GroupMessage, group: Group):
+async def session_manager(app:GraiaMiraiApplication,message: GroupMessage, group: Group):
     if temp_talk.get(message.sender.id):
         # 查看发起会话的用户是否有未结束的会话
         if temp_talk[message.sender.id]['isFirstRun']:
-            temp_talk[message.sender.id]['isFirstRun'] = False
+            temp_talk[message.sender.id]['isFirstRun']=False
             type = temp_talk[message.sender.id]['type']
+            sendMsg=None
             if type == 'Add':
-                await AddQA(message, group)
+                sendMsg= await AddQA(message, group)
             elif type == 'Change':
-                await change(group, message)
-            temp_talk.pop(message.sender.id)
+                sendMsg= await change(group, message)
             # 会话结束，将会话释放掉
-            return True
-    return False
+            temp_talk.pop(message.sender.id)
+            if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
 
 
 def list_refresh(group_id: int):
@@ -134,8 +134,7 @@ def FQA_list(message: GroupMessage, group: Group):
         [Plain(send_txt)]
     )
     print(send_txt)
-    loop.run_until_complete(app.sendGroupMessage(group, send_msg))
-
+    return send_msg
 
 '''
 判断消息链是否合法
@@ -169,6 +168,7 @@ def deleteQA(Q: str, group: Group) -> bool:
         t_QA: dict = GroupQA[group.id]
         if Q in t_QA:
             t_QA.pop(Q)
+            list_refresh(group.id)
             return True
     return False
 
@@ -193,7 +193,7 @@ def get_change(Q: str, group: GroupQA, GM: GroupMessage) -> bool:
 
 
 # 修改问题
-async def change(group: GroupQA, GM: GroupMessage):
+async def change(group: GroupQA, GM: GroupMessage)->MessageChain:
     isFirstRun = temp_talk[GM.sender.id]['isFirstRun']
     Question = temp_talk[GM.sender.id]['Q']
     # 在会话管理查询该会话是否正在进行
@@ -213,10 +213,10 @@ async def change(group: GroupQA, GM: GroupMessage):
         already = GM.messageChain.create([
             Plain(reply)
         ])
-        await app.sendGroupMessage(group, already)
+        return already
 
 
-async def AddQA(groupMsg: GroupMessage, group: Group):
+async def AddQA(groupMsg: GroupMessage, group: Group)->MessageChain:
     global app
     isFirstRun = temp_talk[groupMsg.sender.id]['isFirstRun']
     Question = temp_talk[groupMsg.sender.id]['Q']
@@ -228,6 +228,7 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
                 At(session.user_id),
                 Plain("你已经被拉入小黑屋")
             ])
+            temp_talk.pop(session.user_id)
             await app.sendGroupMessage(group, sendMsg)
             return
         if not GroupQA.get(group.id):
@@ -239,7 +240,7 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
                 sendMsg = groupMsg.messageChain.create([
                     Plain(reply)
                 ]).plusWith(t_QA[Question].get_msg_list())
-                temp_talk.pop(groupMsg.sender.id)
+                temp_talk.pop(session.user_id)
             else:
                 sendMsg = session.msgChain.create([
                     Plain("问题已被录入，请问如何回答？")
@@ -248,11 +249,11 @@ async def AddQA(groupMsg: GroupMessage, group: Group):
         t_QA = GroupQA[group.id]
         answer = Msg(groupMsg)
         t_QA[Question] = answer
-        temp_talk.pop(groupMsg.sender.id)
         sendMsg = session.msgChain.create([
             Plain("录入成功")
         ])
         list_refresh(group.id)
         await saveQA()
     del session
-    if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
+    return sendMsg
+

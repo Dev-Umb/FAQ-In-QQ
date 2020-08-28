@@ -82,31 +82,26 @@ async def close_in_group(message: GroupMessage, group: Group):
         ))
 
 
-@bcc.receiver("GroupMessage")
 async def indexes(message: GroupMessage, group: Group):
-    if parser(message, '#'):
-        id: str = message.messageChain.get(Plain)[0].text.replace('#', '')
-        if id.isdigit():
-            temp_list: list = quick_find_question_list[group.id]
-            Question: str = temp_list[int(id)]
-            Answer = search(Question, group)
-            send_msg = Answer.get_msg_graia(message.messageChain)
-            await app.sendGroupMessage(group, send_msg)
+    id: str = message.messageChain.get(Plain)[0].text.strip().replace('#', '')
+    if id.isdigit():
+        temp_list: list = quick_find_question_list[group.id]
+        Question: str = temp_list[int(id)]
+        Answer = search(Question, group)
+        send_msg = Answer.get_msg_graia(message.messageChain)
+        await app.sendGroupMessage(group, send_msg)
 
 
-@bcc.receiver("GroupMessage")
-async def FQA(message: GroupMessage, group: Group):
-    if message.messageChain.asDisplay().startswith("百度 ") \
-            or message.messageChain.asDisplay().startswith("萌娘 "): return
-    if not (message.messageChain.has(At) or message.messageChain.has(Plain)): return
+async def FQA(app: GraiaMiraiApplication, message: GroupMessage, group: Group) -> bool:
+    if not (message.messageChain.has(At) or message.messageChain.has(Plain)): return False
     msg = Msg(message)
     msgChain = message.messageChain
     # 首先对消息进行问答解析
     Question = msg.txt.strip()
     if Question == '列表' and message.messageChain.has(At):
-        FQA_list(message, group)
+        await app.sendGroupMessage(group, FQA_list(message, group))
         del msg
-        return
+        return True
     at = msgChain.get(At)[0].target if msgChain.has(At) else 0
     tempQ = search(Question, group)
     if tempQ is not None:
@@ -123,21 +118,27 @@ async def FQA(message: GroupMessage, group: Group):
         del msg
         return True
     del msg
-    return
+    return False
 
 
 @bcc.receiver("GroupMessage")
 async def BaiDu(message: GroupMessage, group: Group):
     if group.id not in BlackGroup: return
-    if message.messageChain.asDisplay().startswith("百度 "):
-        entry = message.messageChain.get(Plain)[0].text.replace("百度 ", "")
+    if parser(message, "百度 "):
+        entry = message.messageChain.get(Plain)[0].text.strip().replace("百度 ", "")
         await app.sendGroupMessage(group=group, message=message.messageChain.create([
             Plain(getBaiduKnowledge(entry))
         ]))
-    elif message.messageChain.asDisplay().startswith("萌娘 "):
-        entry = message.messageChain.get(Plain)[0].text.replace("萌娘 ", "")
+    elif parser(message, "萌娘 "):
+        entry = message.messageChain.get(Plain)[0].text.strip().replace("萌娘 ", "")
         await app.sendGroupMessage(group=group, message=message.messageChain.create([
             Plain(getACGKnowledge(entry))
+        ]))
+    elif parser(message, ".来点好听的"):
+        if group.id not in BlackGroup: return
+        await app.sendGroupMessage(group, message.messageChain.create([
+            Plain(get_love()),
+            At(message.sender.id)
         ]))
 
 
@@ -149,37 +150,40 @@ async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessag
     Question = message.messageChain.get(Plain)[0].text if message.messageChain.has(Plain) else None
     hasSession = temp_talk.get(msg.user_id)
     if hasSession is not None:
-        if await session_manager(message, group): return
+        await session_manager(app, message, group)
+        return
+
+    if await FQA(app, message, group): return
+    if parser(message, '#'):
+        await indexes(message, group)
+        return
     if parser(message, "添加问题 "):
         # 创建添加问题的新会话
         Question = Question.replace("添加问题 ", "").strip()
         if hasSession is None:
             add_temp_talk(msg.user_id, 'Add', True, Question)
-            await AddQA(message, group)
+            sendMsg = await AddQA(message, group)
+            if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
         del msg
         return
-    if parser(message, ".来点好听的"):
-        if group.id not in BlackGroup: return
-        await app.sendGroupMessage(group, message.messageChain.create([
-            Plain(get_love()),
-            At(msg.user_id)
-        ]))
+
     if parser(message, "修改问题 "):
         # 创建修改问题的新会话
         Question = Question.replace("修改问题", "").strip()
-        if not hasSession:
+        if hasSession is None:
             add_temp_talk(msg.user_id, 'Change', True, Question)
-            await change(group=group, GM=message)
+            sendMsg = await change(group=group, GM=message)
+            if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
         del msg
         return
+
     if parser(message, "删除问题 "):
         # 删除问题
         Question = Question.replace("删除问题", "").strip()
-        isdeleteOK:str = "删除成功" if deleteQA(Question, group) else "不存在这个问题"
+        isdeleteOK: str = "删除成功" if deleteQA(Question, group) else "不存在这个问题"
         await app.sendGroupMessage(group, message.messageChain.create([
             Plain(isdeleteOK)
         ]))
-        list_refresh(group.id)
         await saveQA()
         del msg
         return
