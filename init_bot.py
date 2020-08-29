@@ -17,9 +17,9 @@ BlackUser = []
 # 黑名单
 Manager = []
 # 超级管理员
-BlackGroup = []
+start_baiDu_group = []
 quick_find_question_list = {}
-
+shutdown_all_group=[]
 loop = asyncio.get_event_loop()  # 获取bot运行的协程
 
 bcc = Broadcast(loop=loop)

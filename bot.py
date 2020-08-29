@@ -3,6 +3,7 @@ from graia.broadcast.builtin.decoraters import Depend
 from pulgin import *
 from MsgObj import Msg
 from init_bot import *
+from command_session import *
 
 '''
 各文件说明：
@@ -11,8 +12,15 @@ from init_bot import *
     MsgObj.py 独立封装的message消息类，便于对消息数据进行保存和调用
     pulgin.py bot所需要到的一些函数的封装
     config.py bot运行所需要的配置，端口号，bot的QQ号等，配置参见Graia文档
-    
+    command_session.py 命令解析器相关函数
 '''
+
+commands = { #命令解析器
+    'startBaidu': start_Baidu,
+    'shutdownBaidu': shutdown_Baidu,
+    'startAll': start_all,
+    'shutdownAll': shutdown_all
+}
 
 '''
 监听新人入群并欢迎
@@ -65,20 +73,18 @@ async def changeWelcome(message: GroupMessage, group: Group):
 
 
 @bcc.receiver("GroupMessage")
-async def close_in_group(message: GroupMessage, group: Group):
-    if parser(message=message, txt="\shutdown") \
-            and message.sender.id in Manager \
-            and group.id in BlackGroup:
-        BlackGroup.remove(group.id)
-        await app.sendGroupMessage(group, message.messageChain.create(
-            [Plain("已关闭百度与骚话功能")]
-        ))
-    elif parser(message, "\start") \
-            and message.sender.id in Manager \
-            and group.id not in BlackGroup:
-        BlackGroup.append(group.id)
-        await app.sendGroupMessage(group, message.messageChain.create(
-            [Plain("已开启百度与骚话功能")]
+async def close_in_group(commandApp:GraiaMiraiApplication,message: GroupMessage, group: Group):
+    if parser(message,"."):
+        command=message.messageChain.get(Plain)[0].text.replace('.','')
+        send_msg = f"未知的指令{command}"
+        if commands.get(command):
+            if commands[command](message,group):
+                send_msg=f"已执行命令{command}"
+
+            else:
+                send_msg=f"此群尚不具备{command}指令的条件！"
+        await commandApp.sendGroupMessage(group, message.messageChain.create(
+                    [Plain(send_msg)]
         ))
 
 
@@ -123,7 +129,8 @@ async def FQA(app: GraiaMiraiApplication, message: GroupMessage, group: Group) -
 
 @bcc.receiver("GroupMessage")
 async def BaiDu(message: GroupMessage, group: Group):
-    if group.id not in BlackGroup: return
+    if group_is_in_list(message, group, shutdown_all_group) \
+            or not group_is_in_list(message, group, start_baiDu_group): return
     if parser(message, "百度 "):
         entry = message.messageChain.get(Plain)[0].text.strip().replace("百度 ", "")
         await app.sendGroupMessage(group=group, message=message.messageChain.create([
@@ -135,7 +142,7 @@ async def BaiDu(message: GroupMessage, group: Group):
             Plain(getACGKnowledge(entry))
         ]))
     elif parser(message, ".来点好听的"):
-        if group.id not in BlackGroup: return
+        if group.id not in start_baiDu_group: return
         await app.sendGroupMessage(group, message.messageChain.create([
             Plain(get_love()),
             At(message.sender.id)
@@ -144,6 +151,7 @@ async def BaiDu(message: GroupMessage, group: Group):
 
 @bcc.receiver("GroupMessage")
 async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
+    if group_is_in_list(message, group, shutdown_all_group): return
     if parser(message, "百度 ") \
             or parser(message, "萌娘 "): return
     msg = Msg(message)
@@ -152,7 +160,6 @@ async def group_message_handler(app: GraiaMiraiApplication, message: GroupMessag
     if hasSession is not None:
         await session_manager(app, message, group)
         return
-
     if await FQA(app, message, group): return
     if parser(message, '#'):
         await indexes(message, group)
