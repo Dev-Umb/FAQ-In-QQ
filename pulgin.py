@@ -12,11 +12,22 @@ from graia.application.group import Group
 from MsgObj import Msg
 from init_bot import *
 import nest_asyncio
-
+from command_session import *
 headers = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Edg/81.0.416.77'
 }  # 请求header
 BaiDuWiKi = 'https://baike.baidu.com/item/'
+
+
+def say_loving(message: GroupMessage,group: Group):
+    if group.id in start_baiDu_group:
+        loop.run_until_complete(
+                app.sendGroupMessage(group, message.messageChain.create([
+                    Plain(get_love()),
+                    At(message.sender.id)
+                ]))
+        )
+    return None
 
 
 def get_love() -> str:
@@ -94,17 +105,17 @@ def add_temp_talk(id: int, type: str, isFirstRun: bool, Question: str):
 '''进行封装的命令解析器'''
 
 
-async def session_manager(app:GraiaMiraiApplication,message: GroupMessage, group: Group):
+async def session_manager(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
     if temp_talk.get(message.sender.id):
         # 查看发起会话的用户是否有未结束的会话
         if temp_talk[message.sender.id]['isFirstRun']:
-            temp_talk[message.sender.id]['isFirstRun']=False
+            temp_talk[message.sender.id]['isFirstRun'] = False
             type = temp_talk[message.sender.id]['type']
-            sendMsg=None
+            sendMsg = None
             if type == 'Add':
-                sendMsg= await AddQA(message, group)
+                sendMsg = await AddQA(message, group)
             elif type == 'Change':
-                sendMsg= await change(group, message)
+                sendMsg = await change(group, message)
             # 会话结束，将会话释放掉
             temp_talk.pop(message.sender.id)
             if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
@@ -126,7 +137,7 @@ def FQA_list(message: GroupMessage, group: Group):
         for i in keyList:
             AllQuestionStr += f"#{num}.{i}\n"
             num += 1
-        AllQuestionStr+="使用快速索引：#+问题序号"
+        AllQuestionStr += "使用快速索引：#+问题序号"
         send_txt = AllQuestionStr
     else:
         send_txt = "本群暂时没有问题哦"
@@ -135,6 +146,7 @@ def FQA_list(message: GroupMessage, group: Group):
     )
     print(send_txt)
     return send_msg
+
 
 '''
 判断消息链是否合法
@@ -193,7 +205,7 @@ def get_change(Q: str, group: GroupQA, GM: GroupMessage) -> bool:
 
 
 # 修改问题
-async def change(group: GroupQA, GM: GroupMessage)->MessageChain:
+async def change(group: GroupQA, GM: GroupMessage) -> MessageChain:
     isFirstRun = temp_talk[GM.sender.id]['isFirstRun']
     Question = temp_talk[GM.sender.id]['Q']
     # 在会话管理查询该会话是否正在进行
@@ -216,7 +228,7 @@ async def change(group: GroupQA, GM: GroupMessage)->MessageChain:
         return already
 
 
-async def AddQA(groupMsg: GroupMessage, group: Group)->MessageChain:
+async def AddQA(groupMsg: GroupMessage, group: Group) -> MessageChain:
     global app
     isFirstRun = temp_talk[groupMsg.sender.id]['isFirstRun']
     Question = temp_talk[groupMsg.sender.id]['Q']
@@ -256,4 +268,3 @@ async def AddQA(groupMsg: GroupMessage, group: Group)->MessageChain:
         await saveQA()
     del session
     return sendMsg
-
