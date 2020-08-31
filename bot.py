@@ -19,7 +19,8 @@ commands = { #命令解析器
     'startBaidu': start_Baidu,
     'shutdownBaidu': shutdown_Baidu,
     'startAll': start_all,
-    'shutdownAll': shutdown_all
+    'shutdownAll': shutdown_all,
+    '来点好听的':say_loving
 }
 
 '''
@@ -75,12 +76,14 @@ async def changeWelcome(message: GroupMessage, group: Group):
 @bcc.receiver("GroupMessage")
 async def close_in_group(commandApp:GraiaMiraiApplication,message: GroupMessage, group: Group):
     if parser(message,"."):
+        if not is_manager(message):return
         command=message.messageChain.get(Plain)[0].text.replace('.','')
         send_msg = f"未知的指令{command}"
         if commands.get(command):
-            if commands[command](message,group):
+            flag=commands[command](message,group)
+            if flag is None:return
+            if flag:
                 send_msg=f"已执行命令{command}"
-
             else:
                 send_msg=f"此群尚不具备{command}指令的条件！"
         await commandApp.sendGroupMessage(group, message.messageChain.create(
@@ -129,8 +132,8 @@ async def FQA(app: GraiaMiraiApplication, message: GroupMessage, group: Group) -
 
 @bcc.receiver("GroupMessage")
 async def BaiDu(message: GroupMessage, group: Group):
-    if group_is_in_list(message, group, shutdown_all_group) \
-            or not group_is_in_list(message, group, start_baiDu_group): return
+    if only_group_in_list(group, shutdown_all_group) \
+            or not only_group_in_list(group, start_baiDu_group): return
     if parser(message, "百度 "):
         entry = message.messageChain.get(Plain)[0].text.strip().replace("百度 ", "")
         await app.sendGroupMessage(group=group, message=message.messageChain.create([
@@ -140,12 +143,6 @@ async def BaiDu(message: GroupMessage, group: Group):
         entry = message.messageChain.get(Plain)[0].text.strip().replace("萌娘 ", "")
         await app.sendGroupMessage(group=group, message=message.messageChain.create([
             Plain(getACGKnowledge(entry))
-        ]))
-    elif parser(message, ".来点好听的"):
-        if group.id not in start_baiDu_group: return
-        await app.sendGroupMessage(group, message.messageChain.create([
-            Plain(get_love()),
-            At(message.sender.id)
         ]))
 
 

@@ -8,7 +8,13 @@ def is_manager(message: GroupMessage) -> bool:
     return False
 
 
-def group_is_in_list(message: GroupMessage, group: Group, start_group: list)->bool:
+def only_group_in_list(group: Group, start_group: list) -> bool:
+    if group.id in start_group:
+        return True
+    return False
+
+
+def group_is_in_list(message: GroupMessage, group: Group, start_group: list) -> bool:
     if is_manager(message) and group.id in start_group:
         return True
     return False
