@@ -3,7 +3,7 @@ from init_bot import *
 
 
 def is_manager(message: GroupMessage) -> bool:
-    if message.sender.permission == "MEMBER" or message.sender.id in Manager:
+    if message.sender.permission == "ADMINISTRATOR" or message.sender.permission== "OWNER" or message.sender.id in Manager:
         return True
     return False
 

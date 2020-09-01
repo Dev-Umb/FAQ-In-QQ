@@ -19,8 +19,7 @@ commands = { #命令解析器
     'startBaidu': start_Baidu,
     'shutdownBaidu': shutdown_Baidu,
     'startAll': start_all,
-    'shutdownAll': shutdown_all,
-    '来点好听的':say_loving
+    'shutdownAll': shutdown_all
 }
 
 '''
@@ -144,6 +143,8 @@ async def BaiDu(message: GroupMessage, group: Group):
         await app.sendGroupMessage(group=group, message=message.messageChain.create([
             Plain(getACGKnowledge(entry))
         ]))
+    elif parser(message,'。来点好听的'):
+        say_loving(message,group)
 
 
 @bcc.receiver("GroupMessage")
