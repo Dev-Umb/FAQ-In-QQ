@@ -101,12 +101,12 @@ async def indexes(message: GroupMessage, group: Group):
 
 
 async def FQA(app: GraiaMiraiApplication, message: GroupMessage, group: Group) -> bool:
-    if not (message.messageChain.has(At) or message.messageChain.has(Plain)): return False
+    if not message.messageChain.has(Plain): return False
     msg = Msg(message)
     msgChain = message.messageChain
     # 首先对消息进行问答解析
     Question = msg.txt.strip()
-    if Question == '列表' and message.messageChain.has(At):
+    if Question == '列表':
         await app.sendGroupMessage(group, FQA_list(message, group))
         del msg
         return True
