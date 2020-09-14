@@ -1,7 +1,6 @@
 '''下面是bot的初始化'''
 import asyncio
 import json
-
 from graia.application import GraiaMiraiApplication, Session
 from graia.broadcast import Broadcast
 
@@ -11,15 +10,17 @@ from config import *
 GroupQA = {}
 LoveTalkList = []
 temp_talk = dict()  # 简易的会话管理器
-WelcomeScence = {
-}
+WelcomeScence = {}
 BlackUser = []
 # 黑名单
 Manager = []
 # 超级管理员
+FuckUser = []
+# 诈骗黑名单
 start_baiDu_group = []
+mast_manager_group = []
 quick_find_question_list = {}
-shutdown_all_group=[]
+shutdown_all_group = []
 loop = asyncio.get_event_loop()  # 获取bot运行的协程
 
 bcc = Broadcast(loop=loop)

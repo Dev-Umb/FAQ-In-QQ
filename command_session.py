@@ -3,7 +3,8 @@ from init_bot import *
 
 
 def is_manager(message: GroupMessage) -> bool:
-    if message.sender.permission == "ADMINISTRATOR" or message.sender.permission== "OWNER" or message.sender.id in Manager:
+    test = message.sender.permission
+    if message.sender.permission.value == "ADMINISTRATOR" or message.sender.permission.value == "OWNER" or message.sender.id in Manager:
         return True
     return False
 
@@ -23,6 +24,20 @@ def group_is_in_list(message: GroupMessage, group: Group, start_group: list) -> 
 def shutdown_Baidu(message: GroupMessage, group: Group) -> bool:
     if group_is_in_list(message, group, start_baiDu_group):
         start_baiDu_group.remove(group.id)
+        return True
+    return False
+
+
+def open_manager(message: GroupMessage, group: Group) -> bool:
+    if not group_is_in_list(message, group, mast_manager_group):
+        mast_manager_group.append(group.id)
+        return True
+    return False
+
+
+def close_manager(message: GroupMessage, group: Group) -> bool:
+    if group_is_in_list(message, group, mast_manager_group):
+        mast_manager_group.remove(group.id)
         return True
     return False
 

@@ -13,19 +13,21 @@ from MsgObj import Msg
 from init_bot import *
 import nest_asyncio
 from command_session import *
+
 headers = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 Edg/81.0.416.77'
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/81.0.4044.138 Safari/537.36 Edg/81.0.416.77 '
 }  # 请求header
 BaiDuWiKi = 'https://baike.baidu.com/item/'
 
 
-def say_loving(message: GroupMessage,group: Group):
+def say_loving(message: GroupMessage, group: Group):
     if group.id in start_baiDu_group:
         loop.run_until_complete(
-                app.sendGroupMessage(group, message.messageChain.create([
-                    Plain(get_love()),
-                    At(message.sender.id)
-                ]))
+            app.sendGroupMessage(group, message.messageChain.create([
+                Plain(get_love()),
+                At(message.sender.id)
+            ]))
         )
     return None
 
@@ -105,7 +107,7 @@ def add_temp_talk(id: int, type: str, isFirstRun: bool, Question: str):
 '''进行封装的命令解析器'''
 
 
-async def session_manager(app: GraiaMiraiApplication, message: GroupMessage, group: Group):
+async def session_manager(message: GroupMessage, group: Group):
     if temp_talk.get(message.sender.id):
         # 查看发起会话的用户是否有未结束的会话
         if temp_talk[message.sender.id]['isFirstRun']:
@@ -118,7 +120,8 @@ async def session_manager(app: GraiaMiraiApplication, message: GroupMessage, gro
                 sendMsg = await change(group, message)
             # 会话结束，将会话释放掉
             temp_talk.pop(message.sender.id)
-            if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
+            if sendMsg is not None:
+                await app.sendGroupMessage(group, sendMsg)
 
 
 def list_refresh(group_id: int):
@@ -184,6 +187,8 @@ def deleteQA(Q: str, group: Group) -> bool:
     return False
 
 
+
+
 # 搜寻问题并返回msg对象
 def search(Q: str, group: Group) -> Msg:
     if group.id in GroupQA:
@@ -235,13 +240,13 @@ async def AddQA(groupMsg: GroupMessage, group: Group) -> MessageChain:
     session = Msg(groupMsg)
     if isFirstRun:
         if session.user_id in BlackUser:
-            sendMsg = session.msgChain.create([
+            sendMsg = session.msg_chain.create([
                 At(session.user_id),
                 Plain("你已经被拉入小黑屋")
             ])
             temp_talk.pop(session.user_id)
             await app.sendGroupMessage(group, sendMsg)
-            return
+            return None
         if not GroupQA.get(group.id):
             GroupQA[group.id] = dict()
         t_QA: dict = GroupQA[group.id]
@@ -253,14 +258,14 @@ async def AddQA(groupMsg: GroupMessage, group: Group) -> MessageChain:
                 ]).plusWith(t_QA[Question].get_msg_list())
                 temp_talk.pop(session.user_id)
             else:
-                sendMsg = session.msgChain.create([
+                sendMsg = session.msg_chain.create([
                     Plain("问题已被录入，请问如何回答？")
                 ])
     else:
         t_QA = GroupQA[group.id]
         answer = Msg(groupMsg)
         t_QA[Question] = answer
-        sendMsg = session.msgChain.create([
+        sendMsg = session.msg_chain.create([
             Plain("录入成功")
         ])
         list_refresh(group.id)
