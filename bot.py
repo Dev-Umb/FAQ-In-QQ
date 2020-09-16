@@ -30,10 +30,12 @@ import sched
 commands = {  # 命令解析器
     'startBaidu': start_Baidu,
     'shutdownBaidu': shutdown_Baidu,
-    'startAll': start_all,
-    'shutdownAll': shutdown_all,
-    'Manage': open_manager,
-    'CloseManage': close_manager
+    'startQA': start_all,
+    'shutdownQA': shutdown_all,
+    'manage': open_manager,
+    'closeManage': close_manager,
+    'welcome': open_welcome,
+    'closeWelcome': close_welcome
 }
 
 '''
@@ -44,6 +46,8 @@ commands = {  # 命令解析器
 @bcc.receiver("MemberJoinEvent")
 async def MemberJoin(event: MemberJoinEvent):
     group = event.member.group
+    if group.id not in WelComeGroup:
+        return
     if group.id in WelcomeScence:
         talk = WelcomeScence[group.id]
     else:
@@ -90,24 +94,29 @@ async def changeWelcome(message: GroupMessage, group: Group):
 
 @bcc.receiver("GroupMessage")
 async def close_in_group(commandApp: GraiaMiraiApplication, message: GroupMessage, group: Group):
-    if parser(message, "."):
-        if not is_manager(message): return
-        command = message.messageChain.get(Plain)[0].text.replace('.', '')
-        send_msg = f"未知的指令{command}"
+    if parser(message, ".command "):
+        if not is_manager(message):
+            return
+        command = message.messageChain.get(Plain)[0].text.replace('.command ', '')
+        send_msg = f"未知的指令{command},目前可执行指令：\n"
         if commands.get(command):
             flag: bool = commands[command](message, group)
-            if flag is None: return
+            if flag is None:
+                return
             if flag:
                 send_msg = f"已执行命令{command}"
             else:
                 send_msg = f"此群尚不具备{command}指令的条件！"
+        else:
+            for i in commands.keys():
+                send_msg += f"{i}"
         await commandApp.sendGroupMessage(group, message.messageChain.create(
             [Plain(send_msg)]
         ))
 
 
 async def indexes(message: GroupMessage, group: Group):
-    id: str = message.messageChain.get(Plain)[0].text.strip().replace('#', '')
+    id : str = message.messageChain.get(Plain)[0].text.strip().replace('#', '')
     if id.isdigit():
         temp_list: list = quick_find_question_list[group.id]
         question: str = temp_list[int(id)]
@@ -117,7 +126,8 @@ async def indexes(message: GroupMessage, group: Group):
 
 
 async def FQA(message: GroupMessage, group: Group) -> bool:
-    if not message.messageChain.has(Plain): return False
+    if not message.messageChain.has(Plain):
+        return False
     msg = Msg(message)
     msg_chain = message.messageChain
     # 首先对消息进行问答解析
@@ -199,7 +209,8 @@ async def group_message_handler(message: GroupMessage, group: Group):
         if has_session is None:
             add_temp_talk(msg.user_id, 'Add', True, question)
             sendMsg = await AddQA(message, group)
-            if sendMsg is not None: await app.sendGroupMessage(group, sendMsg)
+            if sendMsg is not None:
+                await app.sendGroupMessage(group, sendMsg)
         del msg
         return
 

@@ -9,6 +9,20 @@ def is_manager(message: GroupMessage) -> bool:
     return False
 
 
+def open_welcome(message: GroupMessage, group: Group) -> bool:
+    if not group_is_in_list(message, group, WelComeGroup):
+        WelComeGroup.append(group.id)
+        return True
+    return False
+
+
+def close_welcome(message: GroupMessage, group: Group) -> bool:
+    if group_is_in_list(message, group, WelComeGroup):
+        WelComeGroup.remove(group.id)
+        return True
+    return False
+
+
 def only_group_in_list(group: Group, start_group: list) -> bool:
     if group.id in start_group:
         return True
