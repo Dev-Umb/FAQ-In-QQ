@@ -11,7 +11,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from graia.application import FriendMessage, Friend
 from graia.application.event.mirai import *
 from graia.broadcast.builtin.decoraters import Depend
-from pulgin import *
+from plugin import *
 from MsgObj import Msg
 from init_bot import *
 from command_session import *
