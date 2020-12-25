@@ -1,6 +1,6 @@
-# FAQ-In-QQ-Python
+# FAQ-In-QQ-Python(暂时停止更新)
 基于[Graia Framework](https://github.com/GraiaProject/Application)框架开发的Mirai机器人插件,目前集成了迎新/问答/百度/萌娘/说骚话功能
-如果对性能有高要求或是Kotlin玩家请移步[Kotlin版本](https://github.com/farewell12345/FAQ-Bot-QQ)，本项目暂时停止更新
+如果对性能有高要求或是Kotlin玩家请移步[Kotlin版本](https://github.com/farewell12345/FAQ-Bot-QQ)，
 ## 使用方法：
 
   1.下载[MiraiOK](https://github.com/LXY1226/MiraiOK)并参阅[文档](https://graiaproject.github.io/Application/)进行配置
